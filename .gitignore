@@ -74,11 +74,10 @@ local.properties
 # Code Recommenders
 .recommenders/
 
-# IDEA folder
+# IDEA generated files
 .idea/
-
-# IDA iml
 *.iml
+out/
 
 # ignore javadoc for now
 doc/

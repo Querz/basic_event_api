@@ -13,22 +13,16 @@ class EventTree {
 
 	void add(Class<?> eventClass, EventMethod method) {
 		Class<?> clazz = eventClass;
-		System.out.println("adding " + eventClass.getSimpleName());
-
 		EventTree.TreeElement closest = getClosest(clazz);
-
 		EventTree.TreeElement elem;
-		System.out.println("closest.eventClass=" + closest.eventClass);
+		//get closest connection in tree
 		if (closest.children != null && closest.children.containsKey(eventClass)) {
-			System.out.println("using existing element");
 			elem = closest.children.get(eventClass);
 		} else {
-			System.out.println("creating new element");
 			elem = new EventTree.TreeElement(clazz);
 		}
 		elem.methods.add(method);
 		Collections.sort(elem.methods);
-		//get closest connection in tree
 
 		//create branch
 		while ((clazz = clazz.getSuperclass()) != Event.class && clazz != closest.eventClass) {
@@ -43,8 +37,8 @@ class EventTree {
 
 	void remove(Class<?> eventClass, Method method) {
 		EventTree.TreeElement elem = getClosest(eventClass);
-		if (elem.eventClass == eventClass) {
-			System.out.println(elem.removeMethod(method));
+		if (elem.children.get(eventClass) != null) {
+			elem.children.get(eventClass).removeMethod(method);
 		}
 	}
 
@@ -90,7 +84,7 @@ class EventTree {
 		}
 
 		boolean removeMethod(Method method) {
-			return methods.removeIf(r -> r.getMethod() == method);
+			return methods.removeIf(r -> r.getMethod().equals(method));
 		}
 
 		void addChild(EventTree.TreeElement elem) {
@@ -101,11 +95,17 @@ class EventTree {
 		}
 
 		void invoke(Event event) {
-			for (EventMethod method : methods) {
-				method.invoke(event);
-			}
+			methods.forEach(method -> invokeEventMethod(method, event));
 			if (parent != null) {
 				parent.invoke(event);
+			}
+		}
+
+		void invokeEventMethod(EventMethod method, Event event) {
+			if (event.isAsync()) {
+				new Thread(() -> method.invoke(event)).start();
+			} else {
+				method.invoke(event);
 			}
 		}
 
@@ -120,22 +120,25 @@ class EventTree {
 		}
 
 		String toString(int depth) {
-			String d = "";
+			StringBuilder d = new StringBuilder(depth);
 
 			for (int i = 0; i < depth; i++) {
-				d += " ";
+				d.append(" ");
 			}
 
-			String out = d + "parent=" + (parent == null ? "null" : parent.eventClass.getSimpleName())
+			StringBuilder out = new StringBuilder(d + "parent=" + (parent == null ? "null" : parent.eventClass.getSimpleName())
 					+ "\n" + d + "eventClass=" + eventClass.getSimpleName()
 					+ "\n" + d + "methods=" + Arrays.toString(methods.toArray())
-					+ "\n" + d + "children:\n";
-			if (children != null) {
+					+ "\n" + d + "children:");
+			if (children == null) {
+				out.append("null\n");
+			} else {
+				out.append("\n");
 				for (Map.Entry<Class<?>, EventTree.TreeElement> entry : children.entrySet()) {
-					out += entry.getValue().toString(depth + 1);
+					out.append(entry.getValue().toString(depth + 1));
 				}
 			}
-			return out;
+			return out.toString();
 		}
 	}
 }
